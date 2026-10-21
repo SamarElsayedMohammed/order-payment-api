@@ -6,14 +6,14 @@ namespace Modules\Auth\Services;
 
 use App\Models\User;
 use Modules\Core\Enums\ErrorCode;
-use Modules\Core\Exceptions\ApiBusinessException;
+use Modules\Core\Http\Responses\ErrorResponse;
 
 class AuthService
 {
     /**
      * @param  array{name: string, email: string, password: string}  $data
      */
-    public function register(array $data): string
+    public function register(array $data): string|ErrorResponse
     {
         $user = User::query()->create([
             'name' => $data['name'],
@@ -24,7 +24,7 @@ class AuthService
         $token = auth('api')->login($user);
 
         if (! is_string($token)) {
-            throw new ApiBusinessException(ErrorCode::InternalError, 'Unable to issue an authentication token.');
+            return ErrorResponse::logged(ErrorCode::InternalError, 'Unable to issue an authentication token.');
         }
 
         return $token;
@@ -33,7 +33,7 @@ class AuthService
     /**
      * @param  array{email: string, password: string}  $credentials
      */
-    public function login(array $credentials): string
+    public function login(array $credentials): string|ErrorResponse
     {
         $token = auth('api')->attempt([
             'email' => $credentials['email'],
@@ -41,18 +41,18 @@ class AuthService
         ]);
 
         if (! is_string($token)) {
-            throw new ApiBusinessException(ErrorCode::InvalidCredentials);
+            return ErrorResponse::logged(ErrorCode::InvalidCredentials);
         }
 
         return $token;
     }
 
-    public function refresh(): string
+    public function refresh(): string|ErrorResponse
     {
         $token = auth('api')->refresh();
 
         if (! is_string($token)) {
-            throw new ApiBusinessException(ErrorCode::Unauthenticated);
+            return ErrorResponse::logged(ErrorCode::Unauthenticated);
         }
 
         return $token;

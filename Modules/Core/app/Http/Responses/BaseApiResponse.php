@@ -25,21 +25,27 @@ abstract class BaseApiResponse implements Responsable
 
     public function toResponse($request): JsonResponse
     {
-        $payload = [
+        try {
+            $payload = $this->formatData($request);
+        } catch (\Throwable) {
+            $payload = $this->data;
+        }
+
+        $body = [
             'success' => $this->httpStatus >= 200 && $this->httpStatus < 300,
             'trace_code' => $this->code,
             'code' => (string) $this->httpStatus,
             'message' => $this->message,
             'trace_id' => $request->attributes->get('trace_id'),
-            'data' => $this->formatData($request),
+            'data' => $payload,
             'meta' => $this->meta === [] ? null : $this->meta,
         ];
 
         if ($this->errors !== []) {
-            $payload['errors'] = $this->errors;
+            $body['errors'] = $this->errors;
         }
 
-        return response()->json($payload, $this->httpStatus);
+        return response()->json($body, $this->httpStatus);
     }
 
     abstract protected function formatData(Request $request): mixed;

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Modules\Payment\Http\Controllers;
 
 use Modules\Core\Enums\ErrorCode;
-use Modules\Core\Exceptions\ApiBusinessException;
 use Modules\Core\Http\Controllers\BaseController;
+use Modules\Core\Http\Responses\ErrorResponse;
 use Modules\Core\Http\Responses\SuccessResponse;
 use Modules\Core\Support\SuccessCode;
 use Modules\Payment\Gateways\PaymentGatewayFactory;
@@ -62,7 +62,7 @@ class PaymentController extends BaseController
      *
      * Possible errors: ORD-SHW-001, SYS-GEN-005, PAY-LST-001, AUTH-TKN-001.
      */
-    public function forOrder(ListPaymentRequest $request, int $order): PaymentCollectionResponse
+    public function forOrder(ListPaymentRequest $request, int $order): PaymentCollectionResponse|ErrorResponse
     {
         $result = $this->payments->listForOrder(
             $this->currentUser(),
@@ -70,6 +70,10 @@ class PaymentController extends BaseController
             $request->validated(),
             $this->resolvePerPage($request),
         );
+
+        if ($result instanceof ErrorResponse) {
+            return $result;
+        }
 
         return new PaymentCollectionResponse($result['data'], $result['meta']);
     }
@@ -79,9 +83,14 @@ class PaymentController extends BaseController
      *
      * Possible errors: PAY-SHW-001, SYS-GEN-005, AUTH-TKN-001.
      */
-    public function show(int $payment): PaymentResponse
+    public function show(int $payment): PaymentResponse|ErrorResponse
     {
         $model = $this->payments->show($this->currentUser(), $payment);
+
+        if ($model instanceof ErrorResponse) {
+            return $model;
+        }
+
         $this->authorize('view', $model);
 
         return PaymentResponse::show(new PaymentResource($model));
@@ -94,7 +103,7 @@ class PaymentController extends BaseController
      * Send an Idempotency-Key header to safely retry the same request.
      * Possible errors: PAY-PRC-001, PAY-PRC-002, PAY-PRC-003, PAY-PRC-004, PAY-PRC-005, PAY-PRC-006, ORD-SHW-001, SYS-GEN-005, AUTH-TKN-001.
      */
-    public function store(ProcessPaymentRequest $request, int $order): PaymentResponse
+    public function store(ProcessPaymentRequest $request, int $order): PaymentResponse|ErrorResponse
     {
         $attempt = $this->payments->process(
             $this->currentUser(),
@@ -103,10 +112,18 @@ class PaymentController extends BaseController
             $request->validated('idempotency_key'),
         );
 
+        if ($attempt instanceof ErrorResponse) {
+            return $attempt;
+        }
+
         if ($attempt->failed) {
-            throw new ApiBusinessException(
-                ErrorCode::PaymentGatewayFailed,
+            return $this->errorResponse(
+                errorCode: ErrorCode::PaymentGatewayFailed,
                 data: (new PaymentResource($attempt->payment))->resolve($request),
+                context: [
+                    'order_id' => $order,
+                    'payment_id' => $attempt->payment->id,
+                ],
             );
         }
 

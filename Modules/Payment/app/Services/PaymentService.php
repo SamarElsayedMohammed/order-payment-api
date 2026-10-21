@@ -7,7 +7,7 @@ namespace Modules\Payment\Services;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Modules\Core\Enums\ErrorCode;
-use Modules\Core\Exceptions\ApiBusinessException;
+use Modules\Core\Http\Responses\ErrorResponse;
 use Modules\Core\Support\ErrorLogger;
 use Modules\Core\Support\PaginationMeta;
 use Modules\Core\Support\SensitiveDataMasker;
@@ -16,6 +16,7 @@ use Modules\Order\Enums\OrderStatus;
 use Modules\Order\Models\Order;
 use Modules\Payment\DTOs\PaymentAttemptData;
 use Modules\Payment\Enums\PaymentStatus;
+use Modules\Payment\Gateways\AbstractPaymentGateway;
 use Modules\Payment\Gateways\PaymentGatewayFactory;
 use Modules\Payment\Http\Resources\PaymentResource;
 use Modules\Payment\Jobs\RecordPaymentAuditLogJob;
@@ -34,17 +35,17 @@ class PaymentService
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function process(User $user, int $orderId, array $payload, ?string $idempotencyKey): PaymentAttemptData
+    public function process(User $user, int $orderId, array $payload, ?string $idempotencyKey): PaymentAttemptData|ErrorResponse
     {
-        $attempt = DB::transaction(function () use ($user, $orderId, $payload, $idempotencyKey): PaymentAttemptData {
+        $attempt = DB::transaction(function () use ($user, $orderId, $payload, $idempotencyKey): PaymentAttemptData|ErrorResponse {
             $order = Order::query()->whereKey($orderId)->lockForUpdate()->first();
 
             if ($order === null) {
-                throw new ApiBusinessException(ErrorCode::OrderNotFound);
+                return ErrorResponse::logged(ErrorCode::OrderNotFound);
             }
 
             if ($order->user_id !== $user->id) {
-                throw new ApiBusinessException(ErrorCode::Forbidden);
+                return ErrorResponse::logged(ErrorCode::Forbidden);
             }
 
             $hash = $this->payloadHash($order, $payload);
@@ -58,7 +59,7 @@ class PaymentService
 
                 if ($existing !== null) {
                     if ($existing->payload_hash !== $hash || $existing->order_id !== $order->id) {
-                        throw new ApiBusinessException(ErrorCode::PaymentIdempotencyConflict);
+                        return ErrorResponse::logged(ErrorCode::PaymentIdempotencyConflict);
                     }
 
                     return new PaymentAttemptData(
@@ -70,14 +71,32 @@ class PaymentService
             }
 
             if ($order->status !== OrderStatus::Confirmed) {
-                throw new ApiBusinessException(ErrorCode::PaymentOrderNotConfirmed);
+                return ErrorResponse::logged(ErrorCode::PaymentOrderNotConfirmed);
             }
 
             if ($order->hasSuccessfulPayment()) {
-                throw new ApiBusinessException(ErrorCode::PaymentAlreadyPaid);
+                return ErrorResponse::logged(ErrorCode::PaymentAlreadyPaid);
             }
 
             $gateway = $this->gateways->make((string) $payload['payment_method']);
+
+            if ($gateway instanceof ErrorResponse) {
+                return $gateway;
+            }
+
+            if ($gateway instanceof AbstractPaymentGateway) {
+                $configError = $gateway->checkConfiguration();
+
+                if ($configError !== null) {
+                    return $configError;
+                }
+
+                $payloadError = $gateway->checkPayload($payload);
+
+                if ($payloadError !== null) {
+                    return $payloadError;
+                }
+            }
 
             $payment = Payment::query()->create([
                 'order_id' => $order->id,
@@ -93,17 +112,21 @@ class PaymentService
                 $result = $gateway->process($order, array_merge($payload, [
                     'idempotency_key' => $idempotencyKey ?: 'payment-'.$payment->id,
                 ]));
-            } catch (ApiBusinessException $exception) {
-                if ($exception->errorCode !== ErrorCode::PaymentGatewayFailed) {
-                    throw $exception;
-                }
-
-                $this->markFailed($payment, ErrorCode::PaymentGatewayFailed->message(), ['error_code' => $exception->errorCode->value]);
-
-                return new PaymentAttemptData($payment->fresh() ?? $payment, replay: false, failed: true);
             } catch (Throwable $exception) {
                 ErrorLogger::logException($exception, ErrorCode::PaymentGatewayFailed, ['payment_id' => $payment->id]);
                 $this->markFailed($payment, ErrorCode::PaymentGatewayFailed->message(), ['error_code' => ErrorCode::PaymentGatewayFailed->value]);
+
+                return new PaymentAttemptData($payment->fresh() ?? $payment, replay: false, failed: true);
+            }
+
+            if ($result instanceof ErrorResponse) {
+                if ($result->errorCode !== ErrorCode::PaymentGatewayFailed) {
+                    $payment->delete();
+
+                    return $result;
+                }
+
+                $this->markFailed($payment, ErrorCode::PaymentGatewayFailed->message(), ['error_code' => $result->errorCode->value]);
 
                 return new PaymentAttemptData($payment->fresh() ?? $payment, replay: false, failed: true);
             }
@@ -123,6 +146,10 @@ class PaymentService
 
             return new PaymentAttemptData($payment->fresh() ?? $payment, replay: false, failed: false);
         });
+
+        if ($attempt instanceof ErrorResponse) {
+            return $attempt;
+        }
 
         if (! $attempt->replay) {
             SendPaymentNotificationJob::dispatch($attempt->payment->id)->afterCommit();
@@ -172,33 +199,33 @@ class PaymentService
 
     /**
      * @param  array<string, mixed>  $filters
-     * @return array{data: array<int, mixed>, meta: array<string, mixed>}
+     * @return array{data: array<int, mixed>, meta: array<string, mixed>}|ErrorResponse
      */
-    public function listForOrder(User $user, int $orderId, array $filters, int $perPage): array
+    public function listForOrder(User $user, int $orderId, array $filters, int $perPage): array|ErrorResponse
     {
         $order = Order::query()->find($orderId);
 
         if ($order === null) {
-            throw new ApiBusinessException(ErrorCode::OrderNotFound);
+            return ErrorResponse::logged(ErrorCode::OrderNotFound);
         }
 
         if ($order->user_id !== $user->id) {
-            throw new ApiBusinessException(ErrorCode::Forbidden);
+            return ErrorResponse::logged(ErrorCode::Forbidden);
         }
 
         return $this->list($user, array_merge($filters, ['order_id' => $orderId]), $perPage);
     }
 
-    public function show(User $user, int $paymentId): Payment
+    public function show(User $user, int $paymentId): Payment|ErrorResponse
     {
         $payment = Payment::query()->with('order')->find($paymentId);
 
         if ($payment === null) {
-            throw new ApiBusinessException(ErrorCode::PaymentNotFound);
+            return ErrorResponse::logged(ErrorCode::PaymentNotFound);
         }
 
         if ($payment->user_id !== $user->id) {
-            throw new ApiBusinessException(ErrorCode::Forbidden);
+            return ErrorResponse::logged(ErrorCode::Forbidden);
         }
 
         return $payment;

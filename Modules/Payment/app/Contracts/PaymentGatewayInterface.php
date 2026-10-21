@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Payment\Contracts;
 
+use Modules\Core\Http\Responses\ErrorResponse;
 use Modules\Order\Models\Order;
 use Modules\Payment\DTOs\PaymentResultData;
 
@@ -18,5 +19,5 @@ interface PaymentGatewayInterface
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function process(Order $order, array $payload = []): PaymentResultData;
+    public function process(Order $order, array $payload = []): PaymentResultData|ErrorResponse;
 }

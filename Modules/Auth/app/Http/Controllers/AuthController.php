@@ -11,6 +11,7 @@ use Modules\Auth\Http\Responses\AuthTokenResponse;
 use Modules\Auth\Http\Responses\UserProfileResponse;
 use Modules\Auth\Services\AuthService;
 use Modules\Core\Http\Controllers\BaseController;
+use Modules\Core\Http\Responses\ErrorResponse;
 use Modules\Core\Http\Responses\SuccessResponse;
 use Modules\Core\Support\SuccessCode;
 
@@ -23,12 +24,16 @@ class AuthController extends BaseController
      *
      * Possible errors: AUTH-REG-001.
      */
-    public function register(RegisterRequest $request): AuthTokenResponse
+    public function register(RegisterRequest $request): AuthTokenResponse|ErrorResponse
     {
-        $token = $this->auth->register($request->validated());
+        $result = $this->auth->register($request->validated());
+
+        if ($result instanceof ErrorResponse) {
+            return $result;
+        }
 
         return new AuthTokenResponse(
-            token: $token,
+            token: $result,
             message: 'Account created successfully.',
             code: SuccessCode::REGISTERED,
             httpStatus: 201,
@@ -40,12 +45,16 @@ class AuthController extends BaseController
      *
      * Possible errors: AUTH-LGN-001, AUTH-LGN-002, SYS-GEN-004.
      */
-    public function login(LoginRequest $request): AuthTokenResponse
+    public function login(LoginRequest $request): AuthTokenResponse|ErrorResponse
     {
-        $token = $this->auth->login($request->validated());
+        $result = $this->auth->login($request->validated());
+
+        if ($result instanceof ErrorResponse) {
+            return $result;
+        }
 
         return new AuthTokenResponse(
-            token: $token,
+            token: $result,
             message: 'Logged in successfully.',
             code: SuccessCode::LOGGED_IN,
         );
@@ -66,10 +75,16 @@ class AuthController extends BaseController
      *
      * Possible errors: AUTH-TKN-001, AUTH-TKN-002.
      */
-    public function refresh(): AuthTokenResponse
+    public function refresh(): AuthTokenResponse|ErrorResponse
     {
+        $result = $this->auth->refresh();
+
+        if ($result instanceof ErrorResponse) {
+            return $result;
+        }
+
         return new AuthTokenResponse(
-            token: $this->auth->refresh(),
+            token: $result,
             message: 'Token refreshed successfully.',
             code: SuccessCode::REFRESHED,
         );

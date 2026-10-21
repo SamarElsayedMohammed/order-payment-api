@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Order\Http\Controllers;
 
 use Modules\Core\Http\Controllers\BaseController;
+use Modules\Core\Http\Responses\ErrorResponse;
 use Modules\Core\Http\Responses\SuccessResponse;
 use Modules\Core\Support\SuccessCode;
 use Modules\Order\Http\Requests\ListOrderRequest;
@@ -58,9 +59,14 @@ class OrderController extends BaseController
      *
      * Possible errors: ORD-SHW-001, SYS-GEN-005, AUTH-TKN-001.
      */
-    public function show(int $order): OrderResponse
+    public function show(int $order): OrderResponse|ErrorResponse
     {
         $model = $this->orders->show($this->currentUser(), $order);
+
+        if ($model instanceof ErrorResponse) {
+            return $model;
+        }
+
         $this->authorize('view', $model);
 
         return OrderResponse::show(new OrderResource($model));
@@ -74,10 +80,20 @@ class OrderController extends BaseController
      *
      * Possible errors: ORD-UPD-001, ORD-UPD-002, ORD-UPD-003, ORD-SHW-001, SYS-GEN-005, AUTH-TKN-001.
      */
-    public function update(UpdateOrderRequest $request, int $order): OrderResponse
+    public function update(UpdateOrderRequest $request, int $order): OrderResponse|ErrorResponse
     {
-        $this->authorize('update', $this->orders->show($this->currentUser(), $order));
+        $existing = $this->orders->show($this->currentUser(), $order);
+
+        if ($existing instanceof ErrorResponse) {
+            return $existing;
+        }
+
+        $this->authorize('update', $existing);
         $model = $this->orders->update($this->currentUser(), $order, $request->validated());
+
+        if ($model instanceof ErrorResponse) {
+            return $model;
+        }
 
         return OrderResponse::updated(new OrderResource($model));
     }
@@ -87,10 +103,20 @@ class OrderController extends BaseController
      *
      * Possible errors: ORD-DEL-001, ORD-SHW-001, SYS-GEN-005, AUTH-TKN-001.
      */
-    public function destroy(int $order): SuccessResponse
+    public function destroy(int $order): SuccessResponse|ErrorResponse
     {
-        $this->authorize('delete', $this->orders->show($this->currentUser(), $order));
-        $this->orders->delete($this->currentUser(), $order);
+        $existing = $this->orders->show($this->currentUser(), $order);
+
+        if ($existing instanceof ErrorResponse) {
+            return $existing;
+        }
+
+        $this->authorize('delete', $existing);
+        $error = $this->orders->delete($this->currentUser(), $order);
+
+        if ($error !== null) {
+            return $error;
+        }
 
         return new SuccessResponse(
             data: null,

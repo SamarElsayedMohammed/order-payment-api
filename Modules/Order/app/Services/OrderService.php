@@ -7,7 +7,7 @@ namespace Modules\Order\Services;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Modules\Core\Enums\ErrorCode;
-use Modules\Core\Exceptions\ApiBusinessException;
+use Modules\Core\Http\Responses\ErrorResponse;
 use Modules\Core\Support\PaginationMeta;
 use Modules\Core\Support\VersionedCache;
 use Modules\Order\Enums\OrderStatus;
@@ -77,33 +77,48 @@ class OrderService
         });
     }
 
-    public function show(User $user, int $orderId): Order
+    public function show(User $user, int $orderId): Order|ErrorResponse
     {
-        return $this->findOwned($user, $orderId)->load('items')->loadCount('payments');
+        $order = $this->findOwned($user, $orderId);
+
+        if ($order instanceof ErrorResponse) {
+            return $order;
+        }
+
+        return $order->load('items')->loadCount('payments');
     }
 
     /**
      * @param  array<string, mixed>  $data
      */
-    public function update(User $user, int $orderId, array $data): Order
+    public function update(User $user, int $orderId, array $data): Order|ErrorResponse
     {
-        return DB::transaction(function () use ($user, $orderId, $data): Order {
+        return DB::transaction(function () use ($user, $orderId, $data): Order|ErrorResponse {
             $order = $this->findOwned($user, $orderId, lock: true);
 
+            if ($order instanceof ErrorResponse) {
+                return $order;
+            }
+
             if ($order->status === OrderStatus::Cancelled) {
-                throw new ApiBusinessException(
+                return ErrorResponse::logged(
                     ErrorCode::OrderInvalidTransition,
                     'Cancelled orders cannot be modified.',
                 );
             }
 
             if (array_key_exists('items', $data) && $order->status !== OrderStatus::Pending) {
-                throw new ApiBusinessException(ErrorCode::OrderItemsLocked);
+                return ErrorResponse::logged(ErrorCode::OrderItemsLocked);
             }
 
             if (isset($data['status'])) {
                 $target = OrderStatus::from((string) $data['status']);
-                $this->assertTransition($order, $target);
+                $transitionError = $this->checkTransition($order, $target);
+
+                if ($transitionError !== null) {
+                    return $transitionError;
+                }
+
                 $order->status = $target;
             }
 
@@ -124,34 +139,42 @@ class OrderService
         });
     }
 
-    public function delete(User $user, int $orderId): void
+    public function delete(User $user, int $orderId): ?ErrorResponse
     {
-        DB::transaction(function () use ($user, $orderId): void {
+        return DB::transaction(function () use ($user, $orderId): ?ErrorResponse {
             $order = $this->findOwned($user, $orderId, lock: true);
 
+            if ($order instanceof ErrorResponse) {
+                return $order;
+            }
+
             if ($order->payments()->exists()) {
-                throw new ApiBusinessException(ErrorCode::OrderDeleteHasPayments);
+                return ErrorResponse::logged(ErrorCode::OrderDeleteHasPayments);
             }
 
             $order->items()->delete();
             $order->delete();
+
+            return null;
         });
     }
 
-    private function assertTransition(Order $order, OrderStatus $target): void
+    private function checkTransition(Order $order, OrderStatus $target): ?ErrorResponse
     {
         if (! $order->status->canTransitionTo($target)) {
-            throw new ApiBusinessException(ErrorCode::OrderInvalidTransition);
+            return ErrorResponse::logged(ErrorCode::OrderInvalidTransition);
         }
 
         if ($order->status === OrderStatus::Confirmed
             && $target === OrderStatus::Cancelled
             && $order->hasSuccessfulPayment()) {
-            throw new ApiBusinessException(
+            return ErrorResponse::logged(
                 ErrorCode::OrderInvalidTransition,
                 'Cannot cancel an order that has a successful payment.',
             );
         }
+
+        return null;
     }
 
     /**
@@ -176,7 +199,7 @@ class OrderService
         $order->items()->createMany($rows);
     }
 
-    private function findOwned(User $user, int $orderId, bool $lock = false): Order
+    private function findOwned(User $user, int $orderId, bool $lock = false): Order|ErrorResponse
     {
         $query = Order::query()->whereKey($orderId);
 
@@ -187,11 +210,11 @@ class OrderService
         $order = $query->first();
 
         if ($order === null) {
-            throw new ApiBusinessException(ErrorCode::OrderNotFound);
+            return ErrorResponse::logged(ErrorCode::OrderNotFound);
         }
 
         if ($order->user_id !== $user->id) {
-            throw new ApiBusinessException(ErrorCode::Forbidden);
+            return ErrorResponse::logged(ErrorCode::Forbidden);
         }
 
         return $order;

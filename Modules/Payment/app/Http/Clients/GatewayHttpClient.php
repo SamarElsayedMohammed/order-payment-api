@@ -8,7 +8,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Modules\Core\Enums\ErrorCode;
-use Modules\Core\Exceptions\ApiBusinessException;
+use Modules\Core\Http\Responses\ErrorResponse;
 use Modules\Core\Support\ErrorLogger;
 use Modules\Payment\DTOs\GatewayResponseData;
 use Throwable;
@@ -81,7 +81,7 @@ class GatewayHttpClient
         int $ttlSeconds = 3300,
         int $timeout = 15,
         string $gateway = 'gateway',
-    ): string {
+    ): string|ErrorResponse {
         $cacheKey .= ':'.hash('sha256', $baseUrl.'|'.$clientId);
         $cached = Cache::get($cacheKey);
 
@@ -105,7 +105,7 @@ class GatewayHttpClient
         $accessToken = $response->body['access_token'] ?? null;
 
         if (! $response->successful || ! is_string($accessToken) || $accessToken === '') {
-            throw new ApiBusinessException(ErrorCode::PaymentGatewayFailed, 'Unable to authenticate with the payment gateway.');
+            return ErrorResponse::logged(ErrorCode::PaymentGatewayFailed, 'Unable to authenticate with the payment gateway.');
         }
 
         $expiresIn = (int) ($response->body['expires_in'] ?? $ttlSeconds);

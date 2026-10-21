@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Modules\Payment\Gateways;
 
 use Modules\Core\Enums\ErrorCode;
-use Modules\Core\Exceptions\ApiBusinessException;
+use Modules\Core\Http\Responses\ErrorResponse;
 use Modules\Order\Models\Order;
 use Modules\Payment\DTOs\GatewayResponseData;
 
@@ -21,20 +21,22 @@ class CreditCardGateway extends AbstractPaymentGateway
         return ['api_key', 'secret_key'];
     }
 
-    protected function validatePayload(array $payload): void
+    protected function validatePayload(array $payload): ?ErrorResponse
     {
         if ($this->isSimulation()) {
-            return;
+            return null;
         }
 
         foreach (['card_number', 'cvv'] as $field) {
             if (empty($payload[$field])) {
-                throw new ApiBusinessException(
+                return ErrorResponse::logged(
                     ErrorCode::PaymentValidationFailed,
                     'The '.$field.' field is required for the credit card gateway.',
                 );
             }
         }
+
+        return null;
     }
 
     protected function buildChargeRequest(Order $order, array $payload): array

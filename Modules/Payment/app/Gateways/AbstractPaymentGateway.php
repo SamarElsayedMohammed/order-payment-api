@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Modules\Payment\Gateways;
 
 use Modules\Core\Enums\ErrorCode;
-use Modules\Core\Exceptions\ApiBusinessException;
+use Modules\Core\Http\Responses\ErrorResponse;
 use Modules\Core\Support\ErrorLogger;
 use Modules\Order\Models\Order;
 use Modules\Payment\Contracts\PaymentGatewayInterface;
@@ -41,24 +41,35 @@ abstract class AbstractPaymentGateway implements PaymentGatewayInterface
     /**
      * @param  array<string, mixed>  $payload
      */
-    final public function process(Order $order, array $payload = []): PaymentResultData
+    final public function process(Order $order, array $payload = []): PaymentResultData|ErrorResponse
     {
-        $this->ensureConfigured();
-        $this->validatePayload($payload);
+        $configError = $this->checkConfiguration();
+
+        if ($configError !== null) {
+            return $configError;
+        }
+
+        $validationError = $this->validatePayload($payload);
+
+        if ($validationError !== null) {
+            return $validationError;
+        }
 
         try {
             $response = $this->executeCharge($order, $this->buildChargeRequest($order, $payload), $payload);
 
+            if ($response instanceof ErrorResponse) {
+                return $response;
+            }
+
             return $this->mapResponse($response);
-        } catch (ApiBusinessException $exception) {
-            throw $exception;
         } catch (Throwable $exception) {
             ErrorLogger::logException($exception, ErrorCode::PaymentGatewayFailed, [
                 'gateway' => $this->identifier(),
                 'order_id' => $order->id,
             ]);
 
-            throw new ApiBusinessException(ErrorCode::PaymentGatewayFailed, previous: $exception);
+            return ErrorResponse::logged(ErrorCode::PaymentGatewayFailed);
         }
     }
 
@@ -71,12 +82,15 @@ abstract class AbstractPaymentGateway implements PaymentGatewayInterface
      * @param  array<string, mixed>  $preparedPayload
      * @param  array<string, mixed>  $originalPayload
      */
-    abstract protected function executeCharge(Order $order, array $preparedPayload, array $originalPayload): GatewayResponseData;
+    abstract protected function executeCharge(Order $order, array $preparedPayload, array $originalPayload): GatewayResponseData|ErrorResponse;
 
     /**
      * @param  array<string, mixed>  $payload
      */
-    protected function validatePayload(array $payload): void {}
+    protected function validatePayload(array $payload): ?ErrorResponse
+    {
+        return null;
+    }
 
     /**
      * @param  array<string, mixed>  $payload
@@ -120,14 +134,14 @@ abstract class AbstractPaymentGateway implements PaymentGatewayInterface
         return strtoupper($this->identifier()).'-'.now()->format('YmdHis').'-'.strtoupper(bin2hex(random_bytes(3)));
     }
 
-    protected function ensureConfigured(): void
+    public function checkConfiguration(): ?ErrorResponse
     {
         if (! $this->isEnabled()) {
-            throw new ApiBusinessException(ErrorCode::PaymentGatewayUnsupported);
+            return ErrorResponse::logged(ErrorCode::PaymentGatewayUnsupported);
         }
 
         if ($this->isSimulation()) {
-            return;
+            return null;
         }
 
         foreach ($this->requiredConfigKeys() as $key) {
@@ -137,8 +151,18 @@ abstract class AbstractPaymentGateway implements PaymentGatewayInterface
                     'missing_key' => $key,
                 ]);
 
-                throw new ApiBusinessException(ErrorCode::PaymentGatewayUnsupported);
+                return ErrorResponse::logged(ErrorCode::PaymentGatewayUnsupported);
             }
         }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function checkPayload(array $payload): ?ErrorResponse
+    {
+        return $this->validatePayload($payload);
     }
 }

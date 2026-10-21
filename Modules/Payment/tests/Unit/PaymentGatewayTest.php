@@ -7,8 +7,9 @@ namespace Modules\Payment\Tests\Unit;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Modules\Core\Enums\ErrorCode;
-use Modules\Core\Exceptions\ApiBusinessException;
+use Modules\Core\Http\Responses\ErrorResponse;
 use Modules\Order\Models\Order;
+use Modules\Payment\DTOs\PaymentResultData;
 use Modules\Payment\Gateways\CreditCardGateway;
 use Modules\Payment\Gateways\PaymentGatewayFactory;
 use Modules\Payment\Gateways\PayPalGateway;
@@ -21,21 +22,15 @@ class PaymentGatewayTest extends TestCase
     {
         $factory = app(PaymentGatewayFactory::class);
 
-        try {
-            $factory->make('stripe');
-            $this->fail('Unknown gateway should be rejected.');
-        } catch (ApiBusinessException $exception) {
-            $this->assertSame(ErrorCode::PaymentGatewayUnsupported, $exception->errorCode);
-        }
+        $unknown = $factory->make('stripe');
+        $this->assertInstanceOf(ErrorResponse::class, $unknown);
+        $this->assertSame(ErrorCode::PaymentGatewayUnsupported, $unknown->errorCode);
 
         config()->set('payment.gateways.credit_card.enabled', false);
 
-        try {
-            $factory->make('credit_card');
-            $this->fail('Disabled gateway should be rejected.');
-        } catch (ApiBusinessException $exception) {
-            $this->assertSame(ErrorCode::PaymentGatewayUnsupported, $exception->errorCode);
-        }
+        $disabled = $factory->make('credit_card');
+        $this->assertInstanceOf(ErrorResponse::class, $disabled);
+        $this->assertSame(ErrorCode::PaymentGatewayUnsupported, $disabled->errorCode);
     }
 
     public function test_credit_card_gateway_charges_and_declines_through_http(): void
@@ -49,6 +44,7 @@ class PaymentGatewayTest extends TestCase
 
         $result = $gateway->process($order, ['card_number' => '4242424242424242', 'cvv' => '123']);
 
+        $this->assertInstanceOf(PaymentResultData::class, $result);
         $this->assertTrue($result->successful);
         $this->assertSame('CC-100', $result->transactionId);
         Http::assertSentCount(1);
@@ -65,6 +61,7 @@ class PaymentGatewayTest extends TestCase
 
         $result = $gateway->process($order, ['card_number' => '4000000000000002', 'cvv' => '123']);
 
+        $this->assertInstanceOf(PaymentResultData::class, $result);
         $this->assertFalse($result->successful);
         $this->assertSame('Card declined', $result->failureReason);
     }
@@ -89,6 +86,7 @@ class PaymentGatewayTest extends TestCase
 
         $result = $gateway->process($order, ['payer_email' => 'buyer@example.com']);
 
+        $this->assertInstanceOf(PaymentResultData::class, $result);
         $this->assertTrue($result->successful);
         $this->assertSame('PAYPAL-1', $result->transactionId);
         Http::assertSent(fn ($request): bool => $request->url() === 'https://api-m.sandbox.paypal.com/v1/oauth2/token' && $request->method() === 'POST');
@@ -110,12 +108,9 @@ class PaymentGatewayTest extends TestCase
         $gateway = new CreditCardGateway(app(GatewayHttpClient::class), $this->liveCardConfig());
         $order = (new Order)->forceFill(['id' => 8, 'total' => '15.00', 'customer_email' => 'buyer@example.com']);
 
-        try {
-            $gateway->process($order, ['card_number' => '4242424242424242', 'cvv' => '123']);
-            $this->fail('A connection failure should be reported as a gateway failure.');
-        } catch (ApiBusinessException $exception) {
-            $this->assertSame(ErrorCode::PaymentGatewayFailed, $exception->errorCode);
-        }
+        $result = $gateway->process($order, ['card_number' => '4242424242424242', 'cvv' => '123']);
+        $this->assertInstanceOf(ErrorResponse::class, $result);
+        $this->assertSame(ErrorCode::PaymentGatewayFailed, $result->errorCode);
 
         $this->assertSame(1, $attempts);
     }
@@ -128,12 +123,9 @@ class PaymentGatewayTest extends TestCase
         ]);
         $order = (new Order)->forceFill(['id' => 9, 'total' => '15.00']);
 
-        try {
-            $gateway->process($order, ['card_number' => '4242424242424242', 'cvv' => '123']);
-            $this->fail('A live gateway without keys should be rejected.');
-        } catch (ApiBusinessException $exception) {
-            $this->assertSame(ErrorCode::PaymentGatewayUnsupported, $exception->errorCode);
-        }
+        $result = $gateway->process($order, ['card_number' => '4242424242424242', 'cvv' => '123']);
+        $this->assertInstanceOf(ErrorResponse::class, $result);
+        $this->assertSame(ErrorCode::PaymentGatewayUnsupported, $result->errorCode);
     }
 
     /**

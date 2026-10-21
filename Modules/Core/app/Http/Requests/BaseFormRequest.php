@@ -22,17 +22,17 @@ abstract class BaseFormRequest extends FormRequest
     protected function failedValidation(Validator $validator): void
     {
         throw new HttpResponseException(
-            (new ErrorResponse(
+            ErrorResponse::logged(
                 errorCode: $this->errorCode(),
                 errors: $validator->errors()->toArray(),
-            ))->toResponse($this)
+            )->toResponse($this)
         );
     }
 
     protected function failedAuthorization(): void
     {
         throw new HttpResponseException(
-            (new ErrorResponse(errorCode: ErrorCode::Forbidden))->toResponse($this)
+            ErrorResponse::logged(errorCode: ErrorCode::Forbidden)->toResponse($this)
         );
     }
 
