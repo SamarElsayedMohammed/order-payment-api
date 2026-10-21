@@ -1,0 +1,6 @@
+{
+    "Core": true,
+    "Auth": true,
+    "Order": true,
+    "Payment": true
+}

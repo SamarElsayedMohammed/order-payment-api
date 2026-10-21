@@ -1,0 +1,941 @@
+{
+    "info": {
+        "name": "Extendable Order and Payment API",
+        "description": "Orders, payments, and JWT authentication. Set base_url and run Login or Register. The token is saved automatically. Protected examples include success and error bodies.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8000"
+        },
+        {
+            "key": "token",
+            "value": ""
+        },
+        {
+            "key": "order_id",
+            "value": "1"
+        },
+        {
+            "key": "payment_id",
+            "value": "1"
+        }
+    ],
+    "item": [
+        {
+            "name": "Authentication",
+            "item": [
+                {
+                    "name": "Register",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/auth/register",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Mona Ali\",\n  \"email\": \"mona@example.com\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();",
+                                    "if (body.data && body.data.token) { pm.collectionVariables.set('token', body.data.token); }"
+                                ]
+                            }
+                        }
+                    ],
+                    "response": [
+                        {
+                            "name": "Created",
+                            "status": "Created",
+                            "code": 201,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"AUTH-REG-200\",\n  \"code\": \"201\",\n  \"message\": \"Account created successfully.\",\n  \"trace_id\": \"example-trace\",\n  \"data\": {\n    \"token\": \"jwt\",\n    \"token_type\": \"bearer\",\n    \"expires_in\": 3600\n  },\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Validation failed",
+                            "status": "Unprocessable Entity",
+                            "code": 422,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"AUTH-REG-001\",\n  \"code\": \"422\",\n  \"message\": \"Registration data is invalid.\",\n  \"trace_id\": \"example-trace\",\n  \"data\": null,\n  \"meta\": null,\n  \"errors\": {\n    \"email\": [\n      \"The email field is required.\"\n    ]\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/auth/login",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"mona@example.com\",\n  \"password\": \"password123\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();",
+                                    "if (body.data && body.data.token) { pm.collectionVariables.set('token', body.data.token); }"
+                                ]
+                            }
+                        }
+                    ],
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"AUTH-LGN-200\",\n  \"code\": \"200\",\n  \"message\": \"Logged in successfully.\",\n  \"trace_id\": \"example-trace\",\n  \"data\": {\n    \"token\": \"jwt\",\n    \"token_type\": \"bearer\",\n    \"expires_in\": 3600\n  },\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Invalid credentials",
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"AUTH-LGN-002\",\n  \"code\": \"401\",\n  \"message\": \"The email or password is incorrect.\",\n  \"trace_id\": \"example-trace\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Too many attempts",
+                            "status": "Too Many Requests",
+                            "code": 429,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"SYS-GEN-004\",\n  \"code\": \"429\",\n  \"message\": \"Too many requests. Please try again later.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Me",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/auth/me"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"AUTH-ME-200\",\n  \"code\": \"200\",\n  \"message\": \"Authenticated user retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": {\n    \"id\": 1,\n    \"name\": \"Mona Ali\",\n    \"email\": \"mona@example.com\",\n    \"created_at\": \"2026-10-20T07:53:53+00:00\"\n  },\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Missing token",
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"AUTH-TKN-001\",\n  \"code\": \"401\",\n  \"message\": \"Authentication is required.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Refresh",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/auth/refresh"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"AUTH-TKN-200\",\n  \"code\": \"200\",\n  \"message\": \"Token refreshed successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": {\n    \"token\": \"jwt\",\n    \"token_type\": \"bearer\",\n    \"expires_in\": 3600\n  },\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Expired token",
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"AUTH-TKN-002\",\n  \"code\": \"401\",\n  \"message\": \"The authentication token has expired.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Logout",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/auth/logout"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"AUTH-OUT-200\",\n  \"code\": \"200\",\n  \"message\": \"Logged out successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Missing token",
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"AUTH-TKN-001\",\n  \"code\": \"401\",\n  \"message\": \"Authentication is required.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Orders",
+            "item": [
+                {
+                    "name": "Create order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/orders",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"customer_name\": \"Mona Ali\",\n  \"customer_email\": \"mona@example.com\",\n  \"customer_phone\": \"01000000000\",\n  \"notes\": \"Leave at reception\",\n  \"total\": \"1.00\",\n  \"items\": [\n    {\"product_name\": \"Notebook\", \"quantity\": 2, \"price\": 10.50},\n    {\"product_name\": \"Pen\", \"quantity\": 1, \"price\": 5}\n  ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();",
+                                    "if (body.data && body.data.id) { pm.collectionVariables.set('order_id', body.data.id); }"
+                                ]
+                            }
+                        }
+                    ],
+                    "response": [
+                        {
+                            "name": "Created",
+                            "status": "Created",
+                            "code": 201,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"ORD-CRT-200\",\n  \"code\": \"201\",\n  \"message\": \"Order created successfully.\",\n  \"trace_id\": \"example-trace\",\n  \"data\": {\n    \"id\": 1,\n    \"status\": \"pending\",\n    \"total\": \"26.00\"\n  },\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Validation failed",
+                            "status": "Unprocessable Entity",
+                            "code": 422,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"ORD-CRT-001\",\n  \"code\": \"422\",\n  \"message\": \"The order could not be created because the submitted data is invalid.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null,\n  \"errors\": {\n    \"items\": [\n      \"The items field is required.\"\n    ]\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List orders",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/v1/orders?status=pending&per_page=15",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "orders"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "pending"
+                                },
+                                {
+                                    "key": "per_page",
+                                    "value": "15"
+                                },
+                                {
+                                    "key": "pagination",
+                                    "value": "cursor",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"ORD-LST-200\",\n  \"code\": \"200\",\n  \"message\": \"Orders retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"status\": \"pending\",\n      \"customer_name\": \"Mona Ali\",\n      \"customer_email\": \"mona@example.com\",\n      \"customer_phone\": null,\n      \"notes\": null,\n      \"total\": \"21.00\",\n      \"payments_count\": 0,\n      \"created_at\": \"2026-10-20T07:53:53+00:00\",\n      \"updated_at\": \"2026-10-20T07:53:54+00:00\"\n    }\n  ],\n  \"meta\": {\n    \"pagination\": {\n      \"mode\": \"offset\",\n      \"current_page\": 1,\n      \"per_page\": 15,\n      \"total\": 1,\n      \"last_page\": 1\n    }\n  }\n}"
+                        },
+                        {
+                            "name": "Invalid filter",
+                            "status": "Unprocessable Entity",
+                            "code": 422,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"ORD-LST-001\",\n  \"code\": \"422\",\n  \"message\": \"The order list filters are invalid.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null,\n  \"errors\": {\n    \"status\": [\n      \"The selected status is invalid.\"\n    ]\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Show order",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/orders/{{order_id}}"
+                    },
+                    "response": [
+                        {
+                            "name": "Forbidden",
+                            "status": "Forbidden",
+                            "code": 403,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"SYS-GEN-005\",\n  \"code\": \"403\",\n  \"message\": \"You are not allowed to access this resource.\",\n  \"trace_id\": \"example-trace\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"ORD-SHW-200\",\n  \"code\": \"200\",\n  \"message\": \"Order retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": {\n    \"id\": 1,\n    \"status\": \"pending\",\n    \"customer_name\": \"Mona Ali\",\n    \"customer_email\": \"mona@example.com\",\n    \"customer_phone\": null,\n    \"notes\": null,\n    \"total\": \"21.00\",\n    \"items\": [\n      {\n        \"id\": 1,\n        \"product_name\": \"Notebook\",\n        \"quantity\": 2,\n        \"price\": \"10.50\",\n        \"line_total\": \"21.00\"\n      }\n    ],\n    \"payments_count\": 0,\n    \"created_at\": \"2026-10-20T07:53:53+00:00\",\n    \"updated_at\": \"2026-10-20T07:53:54+00:00\"\n  },\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Order not found",
+                            "status": "Not Found",
+                            "code": 404,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"ORD-SHW-001\",\n  \"code\": \"404\",\n  \"message\": \"The order was not found.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Confirm order",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/orders/{{order_id}}",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"status\": \"confirmed\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"ORD-UPD-200\",\n  \"code\": \"200\",\n  \"message\": \"Order updated successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": {\n    \"id\": 1,\n    \"status\": \"confirmed\",\n    \"customer_name\": \"Mona Ali\",\n    \"customer_email\": \"mona@example.com\",\n    \"customer_phone\": null,\n    \"notes\": null,\n    \"total\": \"21.00\",\n    \"items\": [\n      {\n        \"id\": 1,\n        \"product_name\": \"Notebook\",\n        \"quantity\": 2,\n        \"price\": \"10.50\",\n        \"line_total\": \"21.00\"\n      }\n    ],\n    \"payments_count\": 0,\n    \"created_at\": \"2026-10-20T07:53:53+00:00\",\n    \"updated_at\": \"2026-10-20T07:53:54+00:00\"\n  },\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Items locked",
+                            "status": "Conflict",
+                            "code": 409,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"ORD-UPD-002\",\n  \"code\": \"409\",\n  \"message\": \"Order items can only be edited while the order is pending.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Invalid transition",
+                            "status": "Conflict",
+                            "code": 409,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"ORD-UPD-003\",\n  \"code\": \"409\",\n  \"message\": \"The order cannot move to the requested status.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Delete order",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/orders/{{order_id}}"
+                    },
+                    "response": [
+                        {
+                            "name": "Blocked by payments",
+                            "status": "Conflict",
+                            "code": 409,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"ORD-DEL-001\",\n  \"code\": \"409\",\n  \"message\": \"An order with associated payments cannot be deleted.\",\n  \"trace_id\": \"example-trace\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"ORD-DEL-200\",\n  \"code\": \"200\",\n  \"message\": \"Order deleted successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Payments",
+            "item": [
+                {
+                    "name": "Payment methods",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/payment-methods"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"PAY-MTH-200\",\n  \"code\": \"200\",\n  \"message\": \"Payment methods retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": [\n    {\n      \"key\": \"credit_card\",\n      \"name\": \"Credit / Debit Card\"\n    },\n    {\n      \"key\": \"paypal\",\n      \"name\": \"PayPal\"\n    }\n  ],\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Missing token",
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"AUTH-TKN-001\",\n  \"code\": \"401\",\n  \"message\": \"Authentication is required.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Process payment",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            },
+                            {
+                                "key": "Idempotency-Key",
+                                "value": "order-{{order_id}}-attempt-1"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/orders/{{order_id}}/payments",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"payment_method\": \"credit_card\",\n  \"simulate_outcome\": \"success\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const body = pm.response.json();",
+                                    "if (body.data && body.data.id) { pm.collectionVariables.set('payment_id', body.data.id); }"
+                                ]
+                            }
+                        }
+                    ],
+                    "response": [
+                        {
+                            "name": "Successful",
+                            "status": "Created",
+                            "code": 201,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"PAY-PRC-200\",\n  \"code\": \"201\",\n  \"message\": \"Payment processed successfully.\",\n  \"trace_id\": \"example-trace\",\n  \"data\": {\n    \"id\": 1,\n    \"status\": \"successful\",\n    \"payment_method\": \"credit_card\"\n  },\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Order not confirmed",
+                            "status": "Conflict",
+                            "code": 409,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"PAY-PRC-002\",\n  \"code\": \"409\",\n  \"message\": \"Payments can only be processed for confirmed orders.\",\n  \"trace_id\": \"example-trace\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Declined",
+                            "status": "Payment Required",
+                            "code": 402,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"PAY-PRC-004\",\n  \"code\": \"402\",\n  \"message\": \"The payment gateway declined or failed to process the payment.\",\n  \"trace_id\": \"example-trace\",\n  \"data\": {\n    \"status\": \"failed\"\n  },\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Unsupported gateway",
+                            "status": "Unprocessable Entity",
+                            "code": 422,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"PAY-PRC-003\",\n  \"code\": \"422\",\n  \"message\": \"The selected payment gateway is unsupported or disabled.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Already paid",
+                            "status": "Conflict",
+                            "code": 409,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"PAY-PRC-005\",\n  \"code\": \"409\",\n  \"message\": \"This order already has a successful payment.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Idempotency key reused",
+                            "status": "Conflict",
+                            "code": 409,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"PAY-PRC-006\",\n  \"code\": \"409\",\n  \"message\": \"This idempotency key was already used with a different payment request.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List payments",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/payments"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"PAY-LST-200\",\n  \"code\": \"200\",\n  \"message\": \"Payments retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"order_id\": 1,\n      \"payment_method\": \"paypal\",\n      \"status\": \"successful\",\n      \"amount\": \"21.00\",\n      \"transaction_id\": \"PAYPAL-20261020075354-F8E1E1\",\n      \"failure_reason\": null,\n      \"created_at\": \"2026-10-20T07:53:54+00:00\"\n    }\n  ],\n  \"meta\": {\n    \"pagination\": {\n      \"mode\": \"offset\",\n      \"current_page\": 1,\n      \"per_page\": 15,\n      \"total\": 1,\n      \"last_page\": 1\n    }\n  }\n}"
+                        },
+                        {
+                            "name": "Invalid filter",
+                            "status": "Unprocessable Entity",
+                            "code": 422,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"PAY-LST-001\",\n  \"code\": \"422\",\n  \"message\": \"The payment list filters are invalid.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null,\n  \"errors\": {\n    \"payment_method\": [\n      \"The selected payment method is invalid.\"\n    ]\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Payments for an order",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/orders/{{order_id}}/payments"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"PAY-LST-200\",\n  \"code\": \"200\",\n  \"message\": \"Payments retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"order_id\": 1,\n      \"payment_method\": \"paypal\",\n      \"status\": \"successful\",\n      \"amount\": \"21.00\",\n      \"transaction_id\": \"PAYPAL-20261020075354-F8E1E1\",\n      \"failure_reason\": null,\n      \"created_at\": \"2026-10-20T07:53:54+00:00\"\n    }\n  ],\n  \"meta\": {\n    \"pagination\": {\n      \"mode\": \"offset\",\n      \"current_page\": 1,\n      \"per_page\": 15,\n      \"total\": 1,\n      \"last_page\": 1\n    }\n  }\n}"
+                        },
+                        {
+                            "name": "Order not found",
+                            "status": "Not Found",
+                            "code": 404,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"ORD-SHW-001\",\n  \"code\": \"404\",\n  \"message\": \"The order was not found.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Show payment",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/payments/{{payment_id}}"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"PAY-SHW-200\",\n  \"code\": \"200\",\n  \"message\": \"Payment retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": {\n    \"id\": 1,\n    \"order_id\": 1,\n    \"payment_method\": \"paypal\",\n    \"status\": \"successful\",\n    \"amount\": \"21.00\",\n    \"transaction_id\": \"PAYPAL-20261020075354-F8E1E1\",\n    \"failure_reason\": null,\n    \"created_at\": \"2026-10-20T07:53:54+00:00\"\n  },\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Payment not found",
+                            "status": "Not Found",
+                            "code": 404,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"PAY-SHW-001\",\n  \"code\": \"404\",\n  \"message\": \"The payment was not found.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Belongs to another user",
+                            "status": "Forbidden",
+                            "code": 403,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"SYS-GEN-005\",\n  \"code\": \"403\",\n  \"message\": \"You are not allowed to access this resource.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "System",
+            "item": [
+                {
+                    "name": "Health",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{base_url}}/api/v1/health"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"SYS-HLT-200\",\n  \"code\": \"200\",\n  \"message\": \"The API is running.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": {\n    \"status\": \"ok\"\n  },\n  \"meta\": null\n}"
+                        },
+                        {
+                            "name": "Unknown route",
+                            "status": "Not Found",
+                            "code": 404,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"success\": false,\n  \"trace_code\": \"SYS-GEN-002\",\n  \"code\": \"404\",\n  \"message\": \"The requested resource was not found.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": null,\n  \"meta\": null\n}"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
