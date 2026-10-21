@@ -27,6 +27,15 @@ class PayPalGateway extends AbstractPaymentGateway
         return array_merge(parent::buildChargeRequest($order, $payload), [
             'intent' => 'CAPTURE',
             'payer_email' => $payload['payer_email'] ?? $order->customer_email,
+            'purchase_units' => [
+                [
+                    'reference_id' => (string) $order->id,
+                    'amount' => [
+                        'currency_code' => $this->config['currency'] ?? 'USD',
+                        'value' => (string) $order->total,
+                    ],
+                ],
+            ],
         ]);
     }
 

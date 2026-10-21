@@ -124,6 +124,10 @@ class PaymentGatewayTest extends TestCase
         $this->assertTrue($result->successful);
         $this->assertSame('PAYPAL-1', $result->transactionId);
         Http::assertSent(fn ($request): bool => $request->url() === 'https://api-m.sandbox.paypal.com/v1/oauth2/token' && $request->method() === 'POST');
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://api-m.sandbox.paypal.com/v2/checkout/orders'
+            && $request['intent'] === 'CAPTURE'
+            && $request['purchase_units'][0]['reference_id'] === '7'
+            && $request['purchase_units'][0]['amount'] === ['currency_code' => 'USD', 'value' => '15.00']);
 
         $gateway->process($order, ['payer_email' => 'buyer@example.com']);
 

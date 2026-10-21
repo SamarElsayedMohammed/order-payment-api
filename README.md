@@ -47,6 +47,7 @@ Set `DOCS_USERNAME` and `DOCS_PASSWORD` in `.env`. The developer tools stay lock
 
 ```bash
 docker compose up
+docker compose exec app php artisan db:seed
 ```
 
 The API is served at `http://localhost:8000`. Horizon runs in the `horizon` service.
@@ -64,13 +65,16 @@ Create the MySQL database from `.env.example`, start Redis, then:
 
 ```bash
 php artisan migrate
+php artisan db:seed
 php artisan serve
 php artisan horizon
 ```
 
+`php artisan db:seed` runs one seeder per module, in order: `Modules/Auth/database/seeders/AuthDatabaseSeeder.php` (10 users), `Modules/Order/database/seeders/OrderDatabaseSeeder.php` (10 orders with 10 items) and `Modules/Payment/database/seeders/PaymentDatabaseSeeder.php` (10 payments). The data follows the API rules: pending orders have no payments, confirmed orders carry successful payments (two of them after failed attempts), and the cancelled orders carry a failed payment. Seed a single module with `php artisan db:seed --class=Modules\\Order\\Database\\Seeders\\OrderDatabaseSeeder`. Each seeder clears its tables first and seeds anything it depends on, so running one again resets its data. Sign in with `demo@example.com` / `password`.
+
 `REDIS_CLIENT` is `predis`, so the Redis PHP extension is optional.
 
-SQLite also works for a local look at the API. Set `DB_CONNECTION=sqlite`, `CACHE_STORE=database`, and `QUEUE_CONNECTION=database`, then run `php artisan migrate`.
+SQLite also works for a local look at the API. Set `DB_CONNECTION=sqlite`, `CACHE_STORE=database`, and `QUEUE_CONNECTION=database`, then run `php artisan migrate` and `php artisan db:seed`.
 
 ## Authentication
 
