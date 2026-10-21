@@ -21,7 +21,7 @@ flowchart TD
     Ctrl --> Resp[BaseApiResponse]
 ```
 
-A new gateway is one class, one `config/payment.php` entry, and its environment keys. `PaymentGatewayFactory` resolves it. `AbstractPaymentGateway::process()` owns the shared flow, and `GatewayHttpClient` owns the outbound call, including a cached OAuth client-credentials token.
+A new gateway is one class, one `Modules/Payment/config/payment.php` entry, and its environment keys. `PaymentGatewayFactory` resolves it. `AbstractPaymentGateway::process()` owns the shared flow, and `GatewayHttpClient` owns the outbound call, including a cached OAuth client-credentials token.
 
 ## Requirements
 
@@ -178,7 +178,7 @@ The Postman collection is `postman/Order_Payment_API.postman_collection.json`. I
 
 1. Create a class that extends `Modules\Payment\Gateways\AbstractPaymentGateway`.
 2. Implement `identifier()`, `requiredConfigKeys()`, and `executeCharge()`. Use the injected `GatewayHttpClient` for the outbound call. It sets the method, endpoint, headers, body, and idempotency key, retries connection failures for `GET` only, caches an OAuth client-credentials token, and masks secrets in the payment log.
-3. Add one entry under `gateways` in `config/payment.php`, plus the matching `.env` keys.
+3. Add one entry under `gateways` in `Modules/Payment/config/payment.php`, plus the matching `.env` keys.
 
 `ProcessPaymentRequest` allows any key present in that config. No controller, service, or enum change is required.
 
@@ -208,5 +208,6 @@ php artisan test
 - Prices are limited to 99,999.99, quantities to 1,000, and orders to 100 items, so a total always fits the column.
 - Payment capture is synchronous and runs while the order row is locked. This is safe for the simulated gateways. With a slow live gateway, the next step would be to commit the pending payment, charge outside the lock, and treat a timeout as pending for reconciliation.
 - Notification and audit logging are queued on Redis after the database commit.
-- Gateway credentials live in `.env` and are read through `config/payment.php`.
+- Gateway credentials live in `.env` and are read through `Modules/Payment/config/payment.php`.
+- Each module keeps its own config in `Modules/<Module>/config/<key>.php`, merged into `config('<key>')` when the module registers. Auth owns `auth.php` and `jwt.php`, Payment owns `payment.php` and its `payments` log channel, and Core owns `developer_tools.php`. The root `config/` folder holds only framework and app-wide tooling config.
 - `.env.example` enables simulation so the project runs without live merchant accounts.

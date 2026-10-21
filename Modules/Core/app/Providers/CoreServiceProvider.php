@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Modules\Core\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
-use Nwidart\Modules\Support\ModuleServiceProvider;
-
-class CoreServiceProvider extends ModuleServiceProvider
+class CoreServiceProvider extends BaseModuleServiceProvider
 {
     /**
      * The name of the module.

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Modules\Auth\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
-use Nwidart\Modules\Support\ModuleServiceProvider;
+use Modules\Core\Providers\BaseModuleServiceProvider;
 
-class AuthServiceProvider extends ModuleServiceProvider
+class AuthServiceProvider extends BaseModuleServiceProvider
 {
     /**
      * The name of the module.

@@ -6,9 +6,9 @@ use Illuminate\Support\Facades\Gate;
 use Modules\Order\Models\Order;
 use Modules\Order\Observers\OrderObserver;
 use Modules\Order\Policies\OrderPolicy;
-use Nwidart\Modules\Support\ModuleServiceProvider;
+use Modules\Core\Providers\BaseModuleServiceProvider;
 
-class OrderServiceProvider extends ModuleServiceProvider
+class OrderServiceProvider extends BaseModuleServiceProvider
 {
     /**
      * The name of the module.

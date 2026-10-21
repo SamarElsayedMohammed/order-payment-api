@@ -6,9 +6,9 @@ use Illuminate\Support\Facades\Gate;
 use Modules\Payment\Models\Payment;
 use Modules\Payment\Observers\PaymentObserver;
 use Modules\Payment\Policies\PaymentPolicy;
-use Nwidart\Modules\Support\ModuleServiceProvider;
+use Modules\Core\Providers\BaseModuleServiceProvider;
 
-class PaymentServiceProvider extends ModuleServiceProvider
+class PaymentServiceProvider extends BaseModuleServiceProvider
 {
     /**
      * The name of the module.
