@@ -33,6 +33,40 @@ class PaymentGatewayTest extends TestCase
         $this->assertSame(ErrorCode::PaymentGatewayUnsupported, $disabled->errorCode);
     }
 
+    public function test_factory_rejects_a_configured_class_that_is_not_a_gateway(): void
+    {
+        config()->set('payment.gateways.broken', ['enabled' => true, 'class' => \stdClass::class]);
+
+        $result = app(PaymentGatewayFactory::class)->make('broken');
+
+        $this->assertInstanceOf(ErrorResponse::class, $result);
+        $this->assertSame(ErrorCode::PaymentGatewayUnsupported, $result->errorCode);
+    }
+
+    public function test_factory_lists_only_enabled_methods(): void
+    {
+        config()->set('payment.gateways.paypal.enabled', false);
+
+        $this->assertSame(
+            [['key' => 'credit_card', 'name' => 'Credit / Debit Card']],
+            app(PaymentGatewayFactory::class)->enabledMethods(),
+        );
+    }
+
+    public function test_simulated_gateways_succeed_without_any_http_call(): void
+    {
+        Http::fake();
+        $order = (new Order)->forceFill(['id' => 14, 'total' => '15.00', 'customer_email' => 'buyer@example.com']);
+
+        $card = new CreditCardGateway(app(GatewayHttpClient::class), ['enabled' => true, 'simulate' => true]);
+        $paypal = new PayPalGateway(app(GatewayHttpClient::class), ['enabled' => true, 'simulate' => true]);
+
+        $this->assertTrue($card->process($order, ['card_number' => '4242424242424242'])->successful);
+        $this->assertTrue($paypal->process($order)->successful);
+        $this->assertFalse($paypal->process($order, ['simulate_outcome' => 'failed'])->successful);
+        Http::assertNothingSent();
+    }
+
     public function test_credit_card_gateway_charges_and_declines_through_http(): void
     {
         Http::fake([
@@ -126,6 +160,90 @@ class PaymentGatewayTest extends TestCase
         $result = $gateway->process($order, ['card_number' => '4242424242424242', 'cvv' => '123']);
         $this->assertInstanceOf(ErrorResponse::class, $result);
         $this->assertSame(ErrorCode::PaymentGatewayUnsupported, $result->errorCode);
+    }
+
+    public function test_credit_card_live_mode_requires_card_number_and_cvv(): void
+    {
+        $gateway = new CreditCardGateway(app(GatewayHttpClient::class), $this->liveCardConfig());
+        $order = (new Order)->forceFill(['id' => 10, 'total' => '15.00']);
+
+        $missingCard = $gateway->process($order, ['cvv' => '123']);
+        $this->assertInstanceOf(ErrorResponse::class, $missingCard);
+        $this->assertSame(ErrorCode::PaymentValidationFailed, $missingCard->errorCode);
+
+        $missingCvv = $gateway->process($order, ['card_number' => '4242424242424242']);
+        $this->assertInstanceOf(ErrorResponse::class, $missingCvv);
+        $this->assertSame(ErrorCode::PaymentValidationFailed, $missingCvv->errorCode);
+    }
+
+    public function test_credit_card_simulation_declines_cards_ending_with_0000(): void
+    {
+        $gateway = new CreditCardGateway(app(GatewayHttpClient::class), [
+            'enabled' => true,
+            'simulate' => true,
+        ]);
+        $order = (new Order)->forceFill(['id' => 11, 'total' => '15.00']);
+
+        $declined = $gateway->process($order, ['card_number' => '4242424242420000']);
+        $this->assertInstanceOf(PaymentResultData::class, $declined);
+        $this->assertFalse($declined->successful);
+        $this->assertSame('Card declined by issuer', $declined->failureReason);
+    }
+
+    public function test_paypal_gateway_refreshes_token_and_retries_once_on_401(): void
+    {
+        $chargeCalls = 0;
+
+        Http::fake(function ($request) use (&$chargeCalls) {
+            if ($request->url() === 'https://api-m.sandbox.paypal.com/v1/oauth2/token') {
+                return Http::response(['access_token' => 'token-'.($chargeCalls + 1), 'expires_in' => 3600], 200);
+            }
+
+            $chargeCalls++;
+
+            if ($chargeCalls === 1) {
+                return Http::response(['message' => 'Unauthorized'], 401);
+            }
+
+            return Http::response(['id' => 'PAYPAL-RETRY-OK', 'status' => 'COMPLETED'], 201);
+        });
+
+        $gateway = new PayPalGateway(app(GatewayHttpClient::class), [
+            'enabled' => true,
+            'simulate' => false,
+            'client_id' => 'client-retry-id',
+            'client_secret' => 'client-secret',
+            'base_url' => 'https://api-m.sandbox.paypal.com',
+        ]);
+        $order = (new Order)->forceFill(['id' => 12, 'total' => '15.00', 'customer_email' => 'buyer@example.com']);
+
+        $result = $gateway->process($order);
+
+        $this->assertInstanceOf(PaymentResultData::class, $result);
+        $this->assertTrue($result->successful);
+        $this->assertSame('PAYPAL-RETRY-OK', $result->transactionId);
+        $this->assertSame(2, $chargeCalls);
+    }
+
+    public function test_paypal_gateway_returns_error_response_when_oauth_fails(): void
+    {
+        Http::fake([
+            'https://api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response(['error' => 'invalid_client'], 401),
+        ]);
+
+        $gateway = new PayPalGateway(app(GatewayHttpClient::class), [
+            'enabled' => true,
+            'simulate' => false,
+            'client_id' => 'bad-client-id',
+            'client_secret' => 'bad-secret',
+            'base_url' => 'https://api-m.sandbox.paypal.com',
+        ]);
+        $order = (new Order)->forceFill(['id' => 13, 'total' => '15.00', 'customer_email' => 'buyer@example.com']);
+
+        $result = $gateway->process($order);
+
+        $this->assertInstanceOf(ErrorResponse::class, $result);
+        $this->assertSame(ErrorCode::PaymentGatewayFailed, $result->errorCode);
     }
 
     /**

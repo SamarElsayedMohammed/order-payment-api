@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Core\Tests\Feature;
 
+use Illuminate\Support\Facades\Route;
+use RuntimeException;
 use Tests\TestCase;
 
 class DeveloperToolsTest extends TestCase
@@ -46,6 +48,20 @@ class DeveloperToolsTest extends TestCase
         $this->delete('/api/v1/health')->assertStatus(405)
             ->assertJsonPath('trace_code', 'SYS-GEN-003')
             ->assertJsonPath('code', '405');
+    }
+
+    public function test_unexpected_errors_return_the_envelope_without_leaking_details(): void
+    {
+        Route::get('api/v1/test-crash', fn () => throw new RuntimeException('database password is hunter2'));
+
+        $response = $this->getJson('/api/v1/test-crash')
+            ->assertStatus(500)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('trace_code', 'SYS-GEN-001')
+            ->assertJsonPath('code', '500');
+
+        $this->assertStringNotContainsString('hunter2', $response->getContent());
+        $this->assertNotEmpty($response->json('trace_id'));
     }
 
     public function test_api_docs_require_credentials(): void

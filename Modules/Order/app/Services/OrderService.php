@@ -16,8 +16,6 @@ use Modules\Order\Models\Order;
 
 class OrderService
 {
-    public const DEFAULT_PER_PAGE = 15;
-
     public function __construct(
         private readonly OrderTotalCalculator $totals,
         private readonly VersionedCache $cache,

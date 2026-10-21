@@ -27,4 +27,10 @@ class OrderStatusTest extends TestCase
         $this->assertFalse(OrderStatus::Cancelled->canTransitionTo(OrderStatus::Confirmed));
         $this->assertTrue(OrderStatus::Cancelled->canTransitionTo(OrderStatus::Cancelled));
     }
+
+    public function test_staying_in_the_same_status_is_allowed(): void
+    {
+        $this->assertTrue(OrderStatus::Pending->canTransitionTo(OrderStatus::Pending));
+        $this->assertTrue(OrderStatus::Confirmed->canTransitionTo(OrderStatus::Confirmed));
+    }
 }

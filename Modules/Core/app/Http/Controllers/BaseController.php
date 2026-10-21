@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Modules\Core\Enums\ErrorCode;
+use Modules\Core\Enums\PerPage;
 use Modules\Core\Http\Responses\ErrorResponse;
 
 abstract class BaseController extends Controller
@@ -43,10 +44,8 @@ abstract class BaseController extends Controller
         );
     }
 
-    protected function resolvePerPage(Request $request, int $default = 15, int $max = 100): int
+    protected function resolvePerPage(Request $request): int
     {
-        $perPage = (int) $request->integer('per_page', $default);
-
-        return min(max($perPage, 1), $max);
+        return PerPage::resolve($request->filled('per_page') ? $request->integer('per_page') : null);
     }
 }

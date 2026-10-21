@@ -371,7 +371,7 @@
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/api/v1/orders?status=pending&per_page=15",
+                            "raw": "{{base_url}}/api/v1/orders?status=pending&per_page=10",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -387,7 +387,7 @@
                                 },
                                 {
                                     "key": "per_page",
-                                    "value": "15"
+                                    "value": "10"
                                 },
                                 {
                                     "key": "pagination",
@@ -408,7 +408,7 @@
                                     "value": "application/json"
                                 }
                             ],
-                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"ORD-LST-200\",\n  \"code\": \"200\",\n  \"message\": \"Orders retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"status\": \"pending\",\n      \"customer_name\": \"Mona Ali\",\n      \"customer_email\": \"mona@example.com\",\n      \"customer_phone\": null,\n      \"notes\": null,\n      \"total\": \"21.00\",\n      \"payments_count\": 0,\n      \"created_at\": \"2026-10-20T07:53:53+00:00\",\n      \"updated_at\": \"2026-10-20T07:53:54+00:00\"\n    }\n  ],\n  \"meta\": {\n    \"pagination\": {\n      \"mode\": \"offset\",\n      \"current_page\": 1,\n      \"per_page\": 15,\n      \"total\": 1,\n      \"last_page\": 1\n    }\n  }\n}"
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"ORD-LST-200\",\n  \"code\": \"200\",\n  \"message\": \"Orders retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"status\": \"pending\",\n      \"customer_name\": \"Mona Ali\",\n      \"customer_email\": \"mona@example.com\",\n      \"customer_phone\": null,\n      \"notes\": null,\n      \"total\": \"21.00\",\n      \"payments_count\": 0,\n      \"created_at\": \"2026-10-20T07:53:53+00:00\",\n      \"updated_at\": \"2026-10-20T07:53:54+00:00\"\n    }\n  ],\n  \"meta\": {\n    \"pagination\": {\n      \"mode\": \"offset\",\n      \"current_page\": 1,\n      \"per_page\": 10,\n      \"total\": 1,\n      \"last_page\": 1\n    }\n  }\n}"
                         },
                         {
                             "name": "Invalid filter",
@@ -777,7 +777,7 @@
                                     "value": "application/json"
                                 }
                             ],
-                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"PAY-LST-200\",\n  \"code\": \"200\",\n  \"message\": \"Payments retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"order_id\": 1,\n      \"payment_method\": \"paypal\",\n      \"status\": \"successful\",\n      \"amount\": \"21.00\",\n      \"transaction_id\": \"PAYPAL-20261020075354-F8E1E1\",\n      \"failure_reason\": null,\n      \"created_at\": \"2026-10-20T07:53:54+00:00\"\n    }\n  ],\n  \"meta\": {\n    \"pagination\": {\n      \"mode\": \"offset\",\n      \"current_page\": 1,\n      \"per_page\": 15,\n      \"total\": 1,\n      \"last_page\": 1\n    }\n  }\n}"
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"PAY-LST-200\",\n  \"code\": \"200\",\n  \"message\": \"Payments retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"order_id\": 1,\n      \"payment_method\": \"paypal\",\n      \"status\": \"successful\",\n      \"amount\": \"21.00\",\n      \"transaction_id\": \"PAYPAL-20261020075354-F8E1E1\",\n      \"failure_reason\": null,\n      \"created_at\": \"2026-10-20T07:53:54+00:00\"\n    }\n  ],\n  \"meta\": {\n    \"pagination\": {\n      \"mode\": \"offset\",\n      \"current_page\": 1,\n      \"per_page\": 10,\n      \"total\": 1,\n      \"last_page\": 1\n    }\n  }\n}"
                         },
                         {
                             "name": "Invalid filter",
@@ -820,7 +820,7 @@
                                     "value": "application/json"
                                 }
                             ],
-                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"PAY-LST-200\",\n  \"code\": \"200\",\n  \"message\": \"Payments retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"order_id\": 1,\n      \"payment_method\": \"paypal\",\n      \"status\": \"successful\",\n      \"amount\": \"21.00\",\n      \"transaction_id\": \"PAYPAL-20261020075354-F8E1E1\",\n      \"failure_reason\": null,\n      \"created_at\": \"2026-10-20T07:53:54+00:00\"\n    }\n  ],\n  \"meta\": {\n    \"pagination\": {\n      \"mode\": \"offset\",\n      \"current_page\": 1,\n      \"per_page\": 15,\n      \"total\": 1,\n      \"last_page\": 1\n    }\n  }\n}"
+                            "body": "{\n  \"success\": true,\n  \"trace_code\": \"PAY-LST-200\",\n  \"code\": \"200\",\n  \"message\": \"Payments retrieved successfully.\",\n  \"trace_id\": \"9823aade-d471-468b-934f-dfec47a61ca9\",\n  \"data\": [\n    {\n      \"id\": 1,\n      \"order_id\": 1,\n      \"payment_method\": \"paypal\",\n      \"status\": \"successful\",\n      \"amount\": \"21.00\",\n      \"transaction_id\": \"PAYPAL-20261020075354-F8E1E1\",\n      \"failure_reason\": null,\n      \"created_at\": \"2026-10-20T07:53:54+00:00\"\n    }\n  ],\n  \"meta\": {\n    \"pagination\": {\n      \"mode\": \"offset\",\n      \"current_page\": 1,\n      \"per_page\": 10,\n      \"total\": 1,\n      \"last_page\": 1\n    }\n  }\n}"
                         },
                         {
                             "name": "Order not found",

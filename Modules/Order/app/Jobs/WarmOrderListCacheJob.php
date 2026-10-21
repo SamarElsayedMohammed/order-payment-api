@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Modules\Core\Enums\PerPage;
 use Modules\Order\Enums\OrderStatus;
 use Modules\Order\Services\OrderService;
 use Throwable;
@@ -42,10 +43,10 @@ class WarmOrderListCacheJob implements ShouldQueue
             return;
         }
 
-        $orders->list($user, [], OrderService::DEFAULT_PER_PAGE);
+        $orders->list($user, [], PerPage::Default->value);
 
         foreach (OrderStatus::cases() as $status) {
-            $orders->list($user, ['status' => $status->value], OrderService::DEFAULT_PER_PAGE);
+            $orders->list($user, ['status' => $status->value], PerPage::Default->value);
         }
     }
 

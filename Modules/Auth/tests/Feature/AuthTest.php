@@ -116,4 +116,76 @@ class AuthTest extends TestCase
         $response->assertOk()->assertJsonPath('trace_code', 'AUTH-TKN-200');
         $this->assertNotSame($token, $response->json('data.token'));
     }
+
+    public function test_user_can_login_with_valid_credentials(): void
+    {
+        User::factory()->create([
+            'email' => 'mona@example.com',
+            'password' => 'password123',
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => 'mona@example.com',
+            'password' => 'password123',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('trace_code', 'AUTH-LGN-200')
+            ->assertJsonPath('data.token_type', 'bearer');
+
+        $this->assertNotEmpty($response->json('data.token'));
+    }
+
+    public function test_registration_rejects_duplicate_email_and_mismatched_password(): void
+    {
+        User::factory()->create(['email' => 'mona@example.com']);
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Mona Ali',
+            'email' => 'mona@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'different123',
+        ])->assertStatus(422)
+            ->assertJsonPath('trace_code', 'AUTH-REG-001')
+            ->assertJsonStructure(['errors' => ['email', 'password']]);
+
+        $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_login_validation_returns_an_indexed_error_code(): void
+    {
+        $this->postJson('/api/v1/auth/login', [])
+            ->assertStatus(422)
+            ->assertJsonPath('trace_code', 'AUTH-LGN-001');
+    }
+
+    public function test_login_is_rate_limited_after_five_attempts(): void
+    {
+        $payload = ['email' => 'mona@example.com', 'password' => 'wrong-password'];
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/v1/auth/login', $payload)->assertUnauthorized();
+        }
+
+        $this->postJson('/api/v1/auth/login', $payload)
+            ->assertStatus(429)
+            ->assertJsonPath('trace_code', 'SYS-GEN-004');
+    }
+
+    public function test_token_cannot_be_used_after_logout(): void
+    {
+        $user = User::factory()->create();
+        $token = $this->tokenFor($user);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/v1/auth/logout')
+            ->assertOk();
+
+        $this->app['auth']->forgetGuards();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/v1/auth/me')
+            ->assertUnauthorized()
+            ->assertJsonPath('trace_code', 'AUTH-TKN-001');
+    }
 }

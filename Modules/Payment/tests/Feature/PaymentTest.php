@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Modules\Payment\Tests\Feature;
 
 use App\Models\User;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Modules\Order\Models\Order;
 use Modules\Payment\Jobs\RecordPaymentAuditLogJob;
@@ -232,5 +234,194 @@ class PaymentTest extends TestCase
             ->getJson('/api/v1/payments?method=credit_card')
             ->assertOk()
             ->assertJsonCount(0, 'data');
+    }
+
+    public function test_missing_order_or_payment_returns_not_found(): void
+    {
+        $user = User::factory()->create();
+
+        $this->asUser($user)->postJson('/api/v1/orders/999999/payments', [
+            'payment_method' => 'paypal',
+        ])->assertNotFound()->assertJsonPath('trace_code', 'ORD-SHW-001');
+
+        $this->asUser($user)->getJson('/api/v1/orders/999999/payments')
+            ->assertNotFound()
+            ->assertJsonPath('trace_code', 'ORD-SHW-001');
+
+        $this->asUser($user)->getJson('/api/v1/payments/999999')
+            ->assertNotFound()
+            ->assertJsonPath('trace_code', 'PAY-SHW-001');
+
+        $this->assertDatabaseCount('payments', 0);
+    }
+
+    public function test_cancelled_order_cannot_be_paid(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->for($user)->cancelled()->create();
+
+        $this->asUser($user)->postJson('/api/v1/orders/'.$order->id.'/payments', [
+            'payment_method' => 'paypal',
+        ])->assertStatus(409)->assertJsonPath('trace_code', 'PAY-PRC-002');
+
+        $this->assertDatabaseCount('payments', 0);
+    }
+
+    public function test_failed_payment_can_be_retried_successfully(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->for($user)->confirmed()->create();
+
+        $this->asUser($user)->postJson('/api/v1/orders/'.$order->id.'/payments', [
+            'payment_method' => 'credit_card',
+            'simulate_outcome' => 'failed',
+        ])->assertStatus(402);
+
+        $this->asUser($user)->postJson('/api/v1/orders/'.$order->id.'/payments', [
+            'payment_method' => 'paypal',
+        ])->assertCreated()->assertJsonPath('data.status', 'successful');
+
+        $this->assertSame(2, Payment::query()->where('order_id', $order->id)->count());
+    }
+
+    public function test_replaying_a_failed_payment_returns_the_same_failure_without_charging_again(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->for($user)->confirmed()->create();
+        $payload = ['payment_method' => 'credit_card', 'simulate_outcome' => 'failed'];
+
+        $firstId = $this->asUser($user)
+            ->postJson('/api/v1/orders/'.$order->id.'/payments', $payload, ['Idempotency-Key' => 'fail-key'])
+            ->assertStatus(402)
+            ->json('data.id');
+
+        $this->asUser($user)
+            ->postJson('/api/v1/orders/'.$order->id.'/payments', $payload, ['Idempotency-Key' => 'fail-key'])
+            ->assertStatus(402)
+            ->assertJsonPath('trace_code', 'PAY-PRC-004')
+            ->assertJsonPath('data.id', $firstId);
+
+        $this->assertDatabaseCount('payments', 1);
+    }
+
+    public function test_amount_comes_from_the_order_and_not_the_client(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->for($user)->confirmed()->create(['total' => '99.50']);
+
+        $this->asUser($user)->postJson('/api/v1/orders/'.$order->id.'/payments', [
+            'payment_method' => 'paypal',
+            'amount' => '1.00',
+        ])->assertCreated()->assertJsonPath('data.amount', '99.50');
+    }
+
+    public function test_live_card_payment_without_card_details_is_rejected_without_storing_a_payment(): void
+    {
+        Http::fake();
+        $this->useLiveCardGateway();
+
+        $user = User::factory()->create();
+        $order = Order::factory()->for($user)->confirmed()->create();
+
+        $this->asUser($user)->postJson('/api/v1/orders/'.$order->id.'/payments', [
+            'payment_method' => 'credit_card',
+        ])->assertStatus(422)->assertJsonPath('trace_code', 'PAY-PRC-001');
+
+        $this->assertDatabaseCount('payments', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_gateway_connection_failure_is_stored_as_a_failed_payment(): void
+    {
+        $this->useLiveCardGateway();
+        Http::fake(fn () => throw new ConnectionException('timeout'));
+
+        $user = User::factory()->create();
+        $order = Order::factory()->for($user)->confirmed()->create();
+
+        $this->asUser($user)->postJson('/api/v1/orders/'.$order->id.'/payments', [
+            'payment_method' => 'credit_card',
+            'card_number' => '4242424242424242',
+            'cvv' => '123',
+        ])->assertStatus(402)
+            ->assertJsonPath('trace_code', 'PAY-PRC-004')
+            ->assertJsonPath('data.status', 'failed');
+
+        $this->assertDatabaseHas('payments', ['order_id' => $order->id, 'status' => 'failed']);
+    }
+
+    public function test_live_gateway_without_keys_is_rejected_without_storing_a_payment(): void
+    {
+        config()->set('payment.gateways.paypal.simulate', false);
+        config()->set('payment.gateways.paypal.client_id', null);
+
+        $user = User::factory()->create();
+        $order = Order::factory()->for($user)->confirmed()->create();
+
+        $this->asUser($user)->postJson('/api/v1/orders/'.$order->id.'/payments', [
+            'payment_method' => 'paypal',
+        ])->assertStatus(422)->assertJsonPath('trace_code', 'PAY-PRC-003');
+
+        $this->assertDatabaseCount('payments', 0);
+    }
+
+    public function test_payment_methods_lists_only_enabled_gateways(): void
+    {
+        config()->set('payment.gateways.paypal.enabled', false);
+        $user = User::factory()->create();
+
+        $this->asUser($user)->getJson('/api/v1/payment-methods')
+            ->assertOk()
+            ->assertJsonPath('trace_code', 'PAY-MTH-200')
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.key', 'credit_card');
+    }
+
+    public function test_payments_can_be_filtered_by_status_and_invalid_filters_are_rejected(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->for($user)->confirmed()->create();
+        Payment::factory()->failed()->create(['order_id' => $order->id, 'user_id' => $user->id]);
+        Payment::factory()->create(['order_id' => $order->id, 'user_id' => $user->id]);
+
+        $this->asUser($user)->getJson('/api/v1/payments?status=failed')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.status', 'failed');
+
+        $this->asUser($user)->getJson('/api/v1/payments?status=refunded')
+            ->assertStatus(422)
+            ->assertJsonPath('trace_code', 'PAY-LST-001');
+    }
+
+    public function test_payment_list_only_shows_the_callers_payments(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        Payment::factory()->create(['user_id' => $other->id]);
+        $mine = Payment::factory()->create(['user_id' => $owner->id]);
+
+        $this->asUser($owner)->getJson('/api/v1/payments')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $mine->id);
+    }
+
+    public function test_payment_routes_require_a_token(): void
+    {
+        $this->getJson('/api/v1/payments')
+            ->assertUnauthorized()
+            ->assertJsonPath('trace_code', 'AUTH-TKN-001');
+
+        $this->postJson('/api/v1/orders/1/payments', ['payment_method' => 'paypal'])
+            ->assertUnauthorized()
+            ->assertJsonPath('trace_code', 'AUTH-TKN-001');
+    }
+
+    private function useLiveCardGateway(): void
+    {
+        config()->set('payment.gateways.credit_card.simulate', false);
+        config()->set('payment.gateways.credit_card.api_key', 'card-key');
+        config()->set('payment.gateways.credit_card.secret_key', 'card-secret');
     }
 }

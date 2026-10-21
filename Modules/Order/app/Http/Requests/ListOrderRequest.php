@@ -6,6 +6,7 @@ namespace Modules\Order\Http\Requests;
 
 use Illuminate\Validation\Rule;
 use Modules\Core\Enums\ErrorCode;
+use Modules\Core\Enums\PerPage;
 use Modules\Core\Http\Requests\BaseFormRequest;
 use Modules\Order\Enums\OrderStatus;
 
@@ -23,7 +24,7 @@ class ListOrderRequest extends BaseFormRequest
     {
         return [
             'status' => ['sometimes', 'nullable', Rule::enum(OrderStatus::class)],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'per_page' => PerPage::rules(),
             'page' => ['sometimes', 'integer', 'min:1'],
             'cursor' => ['sometimes', 'nullable', 'string'],
             'pagination' => ['sometimes', Rule::in(['offset', 'cursor'])],
