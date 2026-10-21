@@ -43,10 +43,15 @@ docker compose run --rm --no-deps app php artisan key:generate
 docker compose run --rm --no-deps app php artisan jwt:secret --force
 ```
 
-Set `DOCS_USERNAME` and `DOCS_PASSWORD` in `.env`. The developer tools stay locked while either value is empty. Compose sets `DB_HOST=mysql` and `REDIS_HOST=redis` for the containers, waits for both services to be healthy, and runs the migrations.
+Set `DOCS_USERNAME` and `DOCS_PASSWORD` in `.env`. The developer tools stay locked while either value is empty. Compose sets `DB_HOST=mysql` and `REDIS_HOST=redis` for the containers, waits for both services to be healthy, runs the migrations, and seeds the database when it has no users.
 
 ```bash
 docker compose up
+```
+
+Run the seed again to reset the demo data:
+
+```bash
 docker compose exec app php artisan db:seed
 ```
 

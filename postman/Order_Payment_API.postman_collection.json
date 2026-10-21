@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "Extendable Order and Payment API",
-        "description": "Orders, payments, and JWT authentication. Set base_url and run Login or Register. The token is saved automatically. Every request describes what it does, its fields, and the values those fields accept. Protected examples include success and error bodies.",
+        "description": "Orders, payments, and JWT authentication. Set base_url, then run `php artisan db:seed` (Docker: `docker compose up` seeds an empty database, or `docker compose exec app php artisan db:seed` to reset it). Sign in with demo@example.com / password, or run Login or Register. The token is saved automatically. Every request describes what it does, its fields, and the values those fields accept. Protected examples include success and error bodies.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "variable": [
