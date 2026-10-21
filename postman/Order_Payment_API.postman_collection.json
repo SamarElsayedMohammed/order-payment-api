@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "Extendable Order and Payment API",
-        "description": "Orders, payments, and JWT authentication. Set base_url and run Login or Register. The token is saved automatically. Protected examples include success and error bodies.",
+        "description": "Orders, payments, and JWT authentication. Set base_url and run Login or Register. The token is saved automatically. Every request describes what it does, its fields, and the values those fields accept. Protected examples include success and error bodies.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "variable": [
@@ -29,6 +29,7 @@
                 {
                     "name": "Register",
                     "request": {
+                        "description": "Create an account and get a JWT. The token is saved into the `token` variable.\n\nBody:\n- `name` (required, string, max 255)\n- `email` (required, email, must not already be registered)\n- `password` (required, string, min 8)\n- `password_confirmation` (required, must match `password`)",
                         "method": "POST",
                         "header": [
                             {
@@ -89,6 +90,7 @@
                 {
                     "name": "Login",
                     "request": {
+                        "description": "Exchange email and password for a JWT. The token is saved into the `token` variable. Limited to 5 attempts per minute per email and IP. The seeded account is demo@example.com / password.\n\nBody:\n- `email` (required, email)\n- `password` (required, string)",
                         "method": "POST",
                         "header": [
                             {
@@ -161,6 +163,7 @@
                 {
                     "name": "Me",
                     "request": {
+                        "description": "Return the authenticated user. Send `Authorization: Bearer {{token}}`. No body or query parameters.",
                         "method": "GET",
                         "header": [
                             {
@@ -204,6 +207,7 @@
                 {
                     "name": "Refresh",
                     "request": {
+                        "description": "Issue a new JWT and invalidate the current one. Send the current token in `Authorization: Bearer {{token}}`. An expired token still works here while it is inside the refresh window. No body.",
                         "method": "POST",
                         "header": [
                             {
@@ -247,6 +251,7 @@
                 {
                     "name": "Logout",
                     "request": {
+                        "description": "Invalidate the current JWT. Send `Authorization: Bearer {{token}}`. The token cannot be used after this call. No body.",
                         "method": "POST",
                         "header": [
                             {
@@ -295,6 +300,7 @@
                 {
                     "name": "Create order",
                     "request": {
+                        "description": "Create an order. It always starts as `pending`. The server calculates `total` from the items and ignores any `total`, `user_id`, or `status` you send. Requires `Authorization: Bearer {{token}}`.\n\nBody:\n- `customer_name` (required, string, max 255)\n- `customer_email` (required, email, max 255)\n- `customer_phone` (optional, string, max 30)\n- `notes` (optional, string, max 1000)\n- `items` (required, 1 to 100 lines)\n  - `product_name` (required, string, max 255)\n  - `quantity` (required, integer, 1 to 10000)\n  - `price` (required, number with up to 2 decimals, 0.01 to 999999.99)",
                         "method": "POST",
                         "header": [
                             {
@@ -359,6 +365,7 @@
                 {
                     "name": "List orders",
                     "request": {
+                        "description": "List the authenticated user's orders. Item lines are left out here; use Show order for them. Requires `Authorization: Bearer {{token}}`.\n\nQuery (all optional):\n- `status`: one of `pending`, `confirmed`, `cancelled`\n- `per_page`: integer, 1 to 100, default 10\n- `page`: integer, minimum 1\n- `pagination`: `offset` (default) or `cursor`\n- `cursor`: cursor from a previous page, used when `pagination` is `cursor`\n- `from`: date, include orders created on or after it\n- `to`: date, must be on or after `from`",
                         "method": "GET",
                         "header": [
                             {
@@ -427,6 +434,7 @@
                 {
                     "name": "Show order",
                     "request": {
+                        "description": "Return one order owned by the authenticated user, including its items. Set the `order_id` variable. Returns 404 when the order does not exist and 403 when it belongs to another user. No body or query parameters.",
                         "method": "GET",
                         "header": [
                             {
@@ -482,6 +490,7 @@
                 {
                     "name": "Confirm order",
                     "request": {
+                        "description": "Update an order owned by the authenticated user. The sample body confirms it. Send only the fields you want to change. A client-supplied `total` or `user_id` is ignored.\n\nItems can change only while the order is `pending`. Status moves from `pending` to `confirmed` or `cancelled`, and from `confirmed` to `cancelled` only when the order has no successful payment. `cancelled` is final.\n\nBody (all optional):\n- `customer_name` (string, max 255)\n- `customer_email` (email, max 255)\n- `customer_phone` (string, max 30, or null)\n- `notes` (string, max 1000, or null)\n- `status`: one of `pending`, `confirmed`, `cancelled`\n- `items`: 1 to 100 lines, same shape as Create order",
                         "method": "PATCH",
                         "header": [
                             {
@@ -546,6 +555,7 @@
                 {
                     "name": "Delete order",
                     "request": {
+                        "description": "Delete an order owned by the authenticated user. Allowed only when the order has no payments at all, including failed ones. Returns 409 (`ORD-DEL-001`) otherwise. Set `order_id`. No body.",
                         "method": "DELETE",
                         "header": [
                             {
@@ -594,6 +604,7 @@
                 {
                     "name": "Payment methods",
                     "request": {
+                        "description": "List the payment gateways that are enabled. Each entry has `key` and `name`. The keys you can send as `payment_method` are `credit_card` and `paypal`. Requires `Authorization: Bearer {{token}}`. No query parameters.",
                         "method": "GET",
                         "header": [
                             {
@@ -637,6 +648,7 @@
                 {
                     "name": "Process payment",
                     "request": {
+                        "description": "Charge a confirmed order that has no successful payment yet. The amount is the order total; a client-supplied amount is ignored. A declined charge is stored as `failed` and returns 402 (`PAY-PRC-004`). Set `order_id`.\n\nSend the `Idempotency-Key` header to retry the same charge safely. It allows up to 255 characters: letters, digits, `.`, `_`, `:`, and `-`. Reusing it with a different order, method, amount, or `simulate_outcome` returns 409 (`PAY-PRC-006`).\n\nBody:\n- `payment_method` (required): `credit_card` or `paypal`\n- `simulate_outcome` (optional): `success` (default) or `failed`. Used only while the gateway runs in simulation mode.\n- `card_number` (optional, string, max 19). Required for `credit_card` when simulation is off. A simulated card ending in `0000` is declined.\n- `cvv` (optional, string, max 4). Required for `credit_card` when simulation is off.\n- `payer_email` (optional, email). Used by PayPal; defaults to the order email.",
                         "method": "POST",
                         "header": [
                             {
@@ -753,6 +765,7 @@
                 {
                     "name": "List payments",
                     "request": {
+                        "description": "List the authenticated user's payments. Requires `Authorization: Bearer {{token}}`.\n\nQuery (all optional):\n- `status`: one of `pending`, `successful`, `failed`\n- `method` (or `payment_method`): `credit_card` or `paypal`\n- `order_id`: integer\n- `per_page`: integer, 1 to 100, default 10\n- `page`: integer, minimum 1\n- `pagination`: `offset` (default) or `cursor`\n- `cursor`: cursor from a previous page, used when `pagination` is `cursor`",
                         "method": "GET",
                         "header": [
                             {
@@ -796,6 +809,7 @@
                 {
                     "name": "Payments for an order",
                     "request": {
+                        "description": "List the payments of one order owned by the authenticated user, including failed attempts. Set `order_id`. Returns 404 when the order does not exist and 403 when it belongs to another user.\n\nQuery: same filters as List payments (`status`, `method`, `per_page`, `page`, `pagination`, `cursor`). `order_id` is taken from the URL.",
                         "method": "GET",
                         "header": [
                             {
@@ -839,6 +853,7 @@
                 {
                     "name": "Show payment",
                     "request": {
+                        "description": "Return one payment owned by the authenticated user. Set the `payment_id` variable. Returns 404 when it does not exist and 403 when it belongs to another user. No body or query parameters.",
                         "method": "GET",
                         "header": [
                             {
@@ -899,6 +914,7 @@
                 {
                     "name": "Health",
                     "request": {
+                        "description": "Check that the API is running. No authentication, body, or query parameters. The response carries `data.status` = `ok` and a `trace_id`. You can send your own `X-Trace-Id` header: 8 to 64 letters, digits, and dashes. Anything else is replaced.",
                         "method": "GET",
                         "header": [
                             {
